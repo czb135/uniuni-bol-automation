@@ -87,12 +87,12 @@ class BOLAgentApp:
         tk.Label(config_frame, text="Batch Number (批次号):").grid(row=0, column=0, sticky="w")
         self.entry_batch = tk.Entry(config_frame, width=35)
         self.entry_batch.grid(row=0, column=1, padx=5)
-        self.entry_batch.insert(0, "NJSUB-202511242000")
+        self.entry_batch.insert(0, "请输入当日批次号")
 
         tk.Label(config_frame, text="Email (接收邮箱):").grid(row=1, column=0, sticky="w")
         self.entry_email = tk.Entry(config_frame, width=35)
         self.entry_email.grid(row=1, column=1, padx=5)
-        self.entry_email.insert(0, "zhangbo.cheng@uniuni.com")
+        self.entry_email.insert(0, "请输入邮箱")
 
         # 输入区
         input_frame = tk.LabelFrame(root, text="粘贴开单指令 (格式: 起点-终点 *数量)", padx=10, pady=10)
