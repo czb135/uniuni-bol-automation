@@ -22,7 +22,7 @@ This is an automated tool designed to streamline the creation of **Bill of Ladin
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/YOUR_USERNAME/uniuni-bol-automation.git](https://github.com/YOUR_USERNAME/uniuni-bol-automation.git)
+    git clone [https://github.com/czb135/uniuni-bol-automation.git](https://github.com/czb135/uniuni-bol-automation.git)
     cd uniuni-bol-automation
     ```
 
