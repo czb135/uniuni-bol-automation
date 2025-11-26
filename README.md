@@ -36,7 +36,7 @@ This is an automated tool designed to streamline the creation of **Bill of Ladin
 
 1.  **Run the Application:**
     ```bash
-    python bol_agent_final.py
+    python bol_agent_gui.py
     ```
 
 2.  **Configure the Run:**
