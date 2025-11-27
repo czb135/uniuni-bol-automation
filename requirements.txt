@@ -5,8 +5,4 @@ openpyxl
 requests
 python-dotenv
 gunicorn
-<<<<<<< HEAD
 webdriver-manager
-=======
-webdriver-manager
->>>>>>> ad6b559c829d6adf43dd74e26ab26522c2a89b20
