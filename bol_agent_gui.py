@@ -21,6 +21,7 @@ ADDRESS_MAP = {
     "LAX162": "*LAX162*: 16288 Boyle Ave, Fontana CA 92337",
     "EWR": "*EWR600*: 600 Federal Blvd, Carteret NJ 07008",
     "EWR600": "*EWR600*: 600 Federal Blvd, Carteret NJ 07008",
+    "NJ600": "*EWR600*: 600 Federal Blvd, Carteret NJ 07008",
     "JFK": "*JFK175*: 175-14 147th Ave, Jamaica NY 11434",
     "JFK175": "*JFK175*: 175-14 147th Ave, Jamaica NY 11434",
     "ORD": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
@@ -41,13 +42,15 @@ ADDRESS_MAP = {
     "DCA522": "DCA522: 5225 Kilmer Place, Hyattsville MD 20781",
     "RDU": "RDU550: 5504 Caterpillar Dr, Apex NC 27539",
     "HFD": "HFD045: 45 Gracey Ave, Meriden CT 06451",
+    "BDL": "HFD045: 45 Gracey Ave, Meriden CT 06451",
     "ORF": "ORF271: 271 Benton Road, Suffolk VA 23434",
     "DOV": "DOV011: 11 S Dupont Blvd, Milford DE 19963",
     "PVD": "PVD031: 31 Graystone St, Warwick RI 02886",
     "NJ25": "EWR025: 25 Amor Ave, Carlstadt NJ 07072",
     "EWR025": "EWR025: 25 Amor Ave, Carlstadt NJ 07072",
     "ORD102": "ORD102: 10216 Werch Dr, Woodridge IL 60517",
-    "ATL760": "ATL760: 7600 Wood Rd, Douglasville GA 30134"
+    "ATL760": "ATL760: 7600 Wood Rd, Douglasville GA 30134",
+    "RIC": "RIC100: 10097 Patterson Park Rd, Suite 101, Ashland VA 23005",
 }
 
 # ================= 2. 业务规则逻辑 =================
@@ -59,7 +62,7 @@ def get_carrier(destination_key):
     # 规则 2: NYQZ (ATL/MIA)
     if "ATL" in dest or "MIA" in dest: return "NYQZ"
     # 规则 3: 80s Express (中西部/东部卫星仓)
-    if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS"]):
+    if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS","RIC"]):
         return "80s Express"
     # 默认
     return "Spot Freight"
@@ -156,6 +159,14 @@ class BOLAgentApp:
                         route_parts = line.split("-")
                         origin = route_parts[0].strip()
                         dest_key = route_parts[1].strip()
+                        
+                        # 标准化别名 (origin normalization)
+                        origin_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
+                        origin = origin_aliases.get(origin.upper(), origin)
+                        
+                        # 标准化目的地别名 (destination normalization)
+                        dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
+                        dest_key = dest_aliases.get(dest_key.upper(), dest_key)
                         
                         # 映射地址
                         full_address = ADDRESS_MAP.get(dest_key, dest_key) # 找不到就用原值
