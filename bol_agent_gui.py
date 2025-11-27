@@ -88,21 +88,25 @@ class BOLAgentApp:
         config_frame.pack(fill="x", padx=10, pady=5)
 
         tk.Label(config_frame, text="Batch Number (批次号):").grid(row=0, column=0, sticky="w")
-        self.entry_batch = tk.Entry(config_frame, width=35)
+        self.entry_batch = tk.Entry(config_frame, width=35, fg="gray")
         self.entry_batch.grid(row=0, column=1, padx=5)
         self.entry_batch.insert(0, "请输入当日批次号")
+        self.entry_batch.bind("<FocusIn>", lambda e: self._on_entry_focus_in(self.entry_batch, "请输入当日批次号"))
+        self.entry_batch.bind("<FocusOut>", lambda e: self._on_entry_focus_out(self.entry_batch, "请输入当日批次号"))
 
         tk.Label(config_frame, text="Email (接收邮箱):").grid(row=1, column=0, sticky="w")
-        self.entry_email = tk.Entry(config_frame, width=35)
+        self.entry_email = tk.Entry(config_frame, width=35, fg="gray")
         self.entry_email.grid(row=1, column=1, padx=5)
         self.entry_email.insert(0, "请输入邮箱")
+        self.entry_email.bind("<FocusIn>", lambda e: self._on_entry_focus_in(self.entry_email, "请输入邮箱"))
+        self.entry_email.bind("<FocusOut>", lambda e: self._on_entry_focus_out(self.entry_email, "请输入邮箱"))
 
         # 输入区
         input_frame = tk.LabelFrame(root, text="粘贴开单指令 (格式: 起点-终点 *数量)", padx=10, pady=10)
         input_frame.pack(fill="both", expand=True, padx=10, pady=5)
         self.txt_input = scrolledtext.ScrolledText(input_frame, height=10)
         self.txt_input.pack(fill="both", expand=True)
-        self.txt_input.insert(tk.END, "EWR936-EWR600 *2\nEWR936-JFK *1")
+        self.txt_input.insert(tk.END, "EWR936-EWR600 *2\nEWR936-JFK *1\nNJ936-RIC-ORF *2")
 
         # 按钮
         btn_frame = tk.Frame(root, pady=10)
@@ -116,6 +120,18 @@ class BOLAgentApp:
         self.txt_log = scrolledtext.ScrolledText(log_frame, height=12, state='disabled', bg="#f4f4f4")
         self.txt_log.pack(fill="both", expand=True)
 
+    def _on_entry_focus_in(self, entry, placeholder):
+        """当输入框获得焦点时，如果是占位符文本则清空"""
+        if entry.get() == placeholder:
+            entry.delete(0, tk.END)
+            entry.config(fg="black")
+
+    def _on_entry_focus_out(self, entry, placeholder):
+        """当输入框失去焦点时，如果为空则显示占位符"""
+        if entry.get().strip() == "":
+            entry.insert(0, placeholder)
+            entry.config(fg="gray")
+
     def log(self, msg):
         self.txt_log.config(state='normal')
         self.txt_log.insert(tk.END, f"[{datetime.now().strftime('%H:%M:%S')}] {msg}\n")
@@ -126,6 +142,12 @@ class BOLAgentApp:
         batch_no = self.entry_batch.get().strip()
         email = self.entry_email.get().strip()
         raw_commands = self.txt_input.get("1.0", tk.END).strip()
+        
+        # 检查是否是占位符文本，如果是则视为空
+        if batch_no == "请输入当日批次号":
+            batch_no = ""
+        if email == "请输入邮箱":
+            email = ""
         
         if not raw_commands:
             messagebox.showwarning("提示", "请先输入指令")
@@ -154,32 +176,72 @@ class BOLAgentApp:
                         line = parts[0]
                         count = int(parts[1].strip())
                     
-                    # 处理 EWR936-LAX
+                    # 处理 EWR936-LAX 或 NJ936-RIC-ORF
                     if "-" in line:
                         route_parts = line.split("-")
                         origin = route_parts[0].strip()
-                        dest_key = route_parts[1].strip()
                         
                         # 标准化别名 (origin normalization)
                         origin_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
                         origin = origin_aliases.get(origin.upper(), origin)
                         
-                        # 标准化目的地别名 (destination normalization)
-                        dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
-                        dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+                        # 判断是两站还是三站路线
+                        if len(route_parts) == 2:
+                            # 两站路线: Origin -> Final Stop
+                            dest_key = route_parts[1].strip()
+                            
+                            # 标准化目的地别名 (destination normalization)
+                            dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
+                            dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+                            
+                            # 映射地址
+                            full_address = ADDRESS_MAP.get(dest_key, dest_key) # 找不到就用原值
+                            carrier = get_carrier(dest_key)
+                            pallets = get_pallet_count(dest_key)
+                            
+                            for _ in range(count):
+                                tasks.append({
+                                    "bol_type": "two_stop",
+                                    "origin": origin,
+                                    "final_stop": full_address,
+                                    "carrier": carrier,
+                                    "pallets": str(pallets)
+                                })
                         
-                        # 映射地址
-                        full_address = ADDRESS_MAP.get(dest_key, dest_key) # 找不到就用原值
-                        carrier = get_carrier(dest_key)
-                        pallets = get_pallet_count(dest_key)
-                        
-                        for _ in range(count):
-                            tasks.append({
-                                "origin": origin,
-                                "final_stop": full_address,
-                                "carrier": carrier,
-                                "pallets": str(pallets)
-                            })
+                        elif len(route_parts) == 3:
+                            # 三站路线: Origin -> Stop 1 -> Final Stop
+                            stop1_key = route_parts[1].strip()
+                            dest_key = route_parts[2].strip()
+                            
+                            # 标准化别名
+                            dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
+                            stop1_key = dest_aliases.get(stop1_key.upper(), stop1_key)
+                            dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+                            
+                            # 映射地址
+                            stop1_address = ADDRESS_MAP.get(stop1_key, stop1_key)
+                            final_stop_address = ADDRESS_MAP.get(dest_key, dest_key)
+                            
+                            # 使用最终目的地的carrier
+                            carrier = get_carrier(dest_key)
+                            
+                            for _ in range(count):
+                                tasks.append({
+                                    "bol_type": "three_stop",
+                                    "origin": origin,
+                                    "stop1": stop1_address,
+                                    "final_stop": final_stop_address,
+                                    "carrier": carrier,
+                                    "stop1_pallets": "12",
+                                    "stop1_pieces": "0",
+                                    "stop1_volume": "10000",
+                                    "final_pallets": "12",
+                                    "final_pieces": "0",
+                                    "final_volume": "10000"
+                                })
+                        else:
+                            self.log(f"⚠️ 不支持的路由格式: {line} (需要2或3个站点)")
+                            continue
                     else:
                         self.log(f"⚠️ 跳过无效行: {line}")
                 except Exception as e:
@@ -190,7 +252,11 @@ class BOLAgentApp:
 
             # 2. 执行循环
             for i, task in enumerate(tasks, 1):
-                self.log(f"正在填写第 {i}/{total} 张: {task['origin']} -> {task['final_stop'][:15]}...")
+                if task.get('bol_type') == 'three_stop':
+                    route_desc = f"{task['origin']} -> {task['stop1'][:15]} -> {task['final_stop'][:15]}"
+                else:
+                    route_desc = f"{task['origin']} -> {task['final_stop'][:15]}"
+                self.log(f"正在填写第 {i}/{total} 张: {route_desc}...")
                 self.fill_smartsheet(driver, task, batch_no, email)
                 self.log(f"🎉 第 {i} 张提交成功！")
                 time.sleep(2) # 稍微等待，避免过快
@@ -287,8 +353,12 @@ class BOLAgentApp:
         # 1. Mode
         set_field("Mode", "Ground", is_dropdown=True)
         
-        # 2. BOL Type
-        set_field("BOL Type", "Origin -> Final Stop", is_dropdown=True)
+        # 2. BOL Type (根据路由类型选择)
+        bol_type = data.get('bol_type', 'two_stop')
+        if bol_type == 'three_stop':
+            set_field("BOL Type", "Origin - Stop1 - Final Stop", is_dropdown=True)
+        else:
+            set_field("BOL Type", "Origin -> Final Stop", is_dropdown=True)
         
         # 3. Ship Date (美式格式)
         today_date = datetime.now().strftime("%m/%d/%Y")
@@ -300,20 +370,130 @@ class BOLAgentApp:
         # 5. Origin
         set_field("Origin", data['origin'], is_dropdown=True)
         
-        # 6. Final Stop
-        set_field("Final Stop", data['final_stop'], is_dropdown=True)
-        
-        # 7. Pallets
-        set_field("PALLET", data['pallets'])
-        
-        # 8. Pieces
-        set_field("PIECE", "0")
-        
-        # 9. Volume
-        set_field("Volume", "10000")
-        
-        # 10. Carrier
-        set_field("Carrier", data['carrier'], is_dropdown=True)
+        # 6-9. 根据路由类型填写不同字段
+        if bol_type == 'three_stop':
+            # 三站路线: Stop 1 和 Final Stop
+            # 6. Stop1
+            set_field("Stop1", data['stop1'], is_dropdown=True)
+            time.sleep(0.5)  # 等待下拉框选择完成
+            
+            # 7. Stop1 PALLET Count
+            set_field("Stop1 PALLET Count", data['stop1_pallets'])
+            
+            # 8. Stop1 PIECE Count
+            set_field("Stop1 PIECE Count", data['stop1_pieces'])
+            
+            # 9. Stop1 Volume Weight
+            set_field("Stop1 Volume Weight", data['stop1_volume'])
+            
+            # 10. Final Stop
+            set_field("Final Stop", data['final_stop'], is_dropdown=True)
+            time.sleep(0.5)  # 等待下拉框选择完成
+            
+            # 11. Final Stop Total PALLET Count
+            set_field("Final Stop Total PALLET Count", data['final_pallets'])
+            
+            # 12. Final Stop Total PIECE Count
+            set_field("Final Stop Total PIECE Count", data['final_pieces'])
+            
+            # 13. Final Stop Volume Weight (必须找到 Final Stop 的 Volume Weight，不能是 Stop1 的)
+            # 策略：先找到 "Final Stop Total PIECE Count" 字段，然后找它后面的 Volume Weight 字段
+            volume_set = False
+            try:
+                # 先定位到 "Final Stop Total PIECE Count" 字段
+                piece_count_elem = None
+                try:
+                    xpath_piece = f"//*[(self::input or self::textarea) and contains(@aria-label, 'Final Stop Total PIECE Count')]"
+                    piece_count_elem = driver.find_element(By.XPATH, xpath_piece)
+                except:
+                    try:
+                        xpath_piece = f"//label[contains(., 'Final Stop Total PIECE Count')]/following::*[self::input or self::textarea][1]"
+                        piece_count_elem = driver.find_element(By.XPATH, xpath_piece)
+                    except:
+                        pass
+                
+                if piece_count_elem:
+                    # 在 "Final Stop Total PIECE Count" 之后查找 Volume Weight 字段
+                    # 排除包含 "Stop1" 的字段
+                    xpath_volume = f"./following::*[(self::input or self::textarea) and (contains(@aria-label, 'Volume Weight') or contains(@aria-label, 'Volume')) and not(contains(@aria-label, 'Stop1'))][1]"
+                    try:
+                        target_elem = piece_count_elem.find_element(By.XPATH, xpath_volume)
+                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_elem)
+                        time.sleep(0.3)
+                        try:
+                            target_elem.click()
+                            target_elem.clear()
+                            target_elem.send_keys(data['final_volume'])
+                        except:
+                            driver.execute_script("arguments[0].value = arguments[1];", target_elem, data['final_volume'])
+                            driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", target_elem)
+                        volume_set = True
+                        print(f"✅ 成功填写 Final Stop Volume Weight 字段")
+                    except:
+                        # 如果上面的方法失败，尝试通过 label 查找
+                        try:
+                            xpath_volume_label = f"./following::label[contains(., 'Volume Weight') and not(contains(., 'Stop1'))]/following::*[self::input or self::textarea][1]"
+                            target_elem = piece_count_elem.find_element(By.XPATH, xpath_volume_label)
+                            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_elem)
+                            time.sleep(0.3)
+                            try:
+                                target_elem.click()
+                                target_elem.clear()
+                                target_elem.send_keys(data['final_volume'])
+                            except:
+                                driver.execute_script("arguments[0].value = arguments[1];", target_elem, data['final_volume'])
+                                driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", target_elem)
+                            volume_set = True
+                            print(f"✅ 成功填写 Final Stop Volume Weight 字段 (通过 label)")
+                        except:
+                            pass
+            except Exception as e:
+                print(f"⚠️ 查找 Final Stop Volume Weight 时出错: {e}")
+            
+            # 如果上面的方法都失败，尝试直接查找（但排除 Stop1）
+            if not volume_set:
+                try:
+                    # 查找所有 Volume Weight 字段，但排除 Stop1 的
+                    xpath_all = f"//*[(self::input or self::textarea) and (contains(@aria-label, 'Volume Weight') or contains(@aria-label, 'Volume')) and not(contains(@aria-label, 'Stop1'))]"
+                    all_volume_fields = driver.find_elements(By.XPATH, xpath_all)
+                    # 找到最后一个（应该是 Final Stop 的）
+                    if all_volume_fields:
+                        target_elem = all_volume_fields[-1]
+                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_elem)
+                        time.sleep(0.3)
+                        try:
+                            target_elem.click()
+                            target_elem.clear()
+                            target_elem.send_keys(data['final_volume'])
+                        except:
+                            driver.execute_script("arguments[0].value = arguments[1];", target_elem, data['final_volume'])
+                            driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", target_elem)
+                        volume_set = True
+                        print(f"✅ 成功填写 Final Stop Volume Weight 字段 (使用最后一个匹配项)")
+                except:
+                    pass
+            
+            if not volume_set:
+                print(f"⚠️ 无法定位 Final Stop Volume Weight 字段")
+            
+            # 14. Carrier
+            set_field("Carrier", data['carrier'], is_dropdown=True)
+        else:
+            # 两站路线: 原有逻辑
+            # 6. Final Stop
+            set_field("Final Stop", data['final_stop'], is_dropdown=True)
+            
+            # 7. Pallets
+            set_field("PALLET", data['pallets'])
+            
+            # 8. Pieces
+            set_field("PIECE", "0")
+            
+            # 9. Volume
+            set_field("Volume", "10000")
+            
+            # 10. Carrier
+            set_field("Carrier", data['carrier'], is_dropdown=True)
         
         # 11. Batch (专门修复：支持 Textarea)
         set_field("Batch", batch_no)
