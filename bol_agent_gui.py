@@ -27,7 +27,7 @@ ADDRESS_MAP = {
     "JFK175": "*JFK175*: 175-14 147th Ave, Jamaica NY 11434",
     "ORD": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
     "ORD121": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
-    "DFW": "DFW140: 1401 Dunn Dr, Carrolton TX 75006",
+    "DFW140": "DFW140: 1401 Dunn Dr, Carrolton TX 75006",
     "DFW445": "*DFW445*: 4450 W Walnut Hill Lane, Unit 100, Irving TX 75038",
     "ATL": "*ATL441*: 4411 Bibb Boulevard, Tucker GA 30084",
     "ATL441": "*ATL441*: 4411 Bibb Boulevard, Tucker GA 30084",
