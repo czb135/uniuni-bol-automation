@@ -27,12 +27,13 @@ ADDRESS_MAP = {
     "JFK175": "*JFK175*: 175-14 147th Ave, Jamaica NY 11434",
     "ORD": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
     "ORD121": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
-    "DFW": "*DFW445*: 4450 W Walnut Hill Lane, Unit 100, Irving TX 75038",
+    "DFW": "DFW140: 1401 Dunn Dr, Carrolton TX 75006",
     "DFW445": "*DFW445*: 4450 W Walnut Hill Lane, Unit 100, Irving TX 75038",
     "ATL": "*ATL441*: 4411 Bibb Boulevard, Tucker GA 30084",
     "ATL441": "*ATL441*: 4411 Bibb Boulevard, Tucker GA 30084",
     "MIA": "*MIA307*: 3075 NW 107th Ave, Doral FL 33172",
     "MIA307": "*MIA307*: 3075 NW 107th Ave, Doral FL 33172",
+    "IAH": "IAH879: 8790 Wallisville Rd, Houston TX 77029",
 
     # --- 卫星仓/其他站点 (不带星号格式) ---
     "BOS": "BOS001: 1 Wesley St, Malden, MA 02148",
@@ -357,7 +358,7 @@ class BOLAgentApp:
         set_field("Mode", "Ground", is_dropdown=True)
         bol_type = data.get('bol_type', 'two_stop')
         if bol_type == 'three_stop':
-            set_field("BOL Type", "Origin - Stop1 - Final Stop", is_dropdown=True)
+            set_field("BOL Type", "Origin -> Stop1 -> Final Stop", is_dropdown=True)
         else:
             set_field("BOL Type", "Origin -> Final Stop", is_dropdown=True)
         
@@ -377,14 +378,21 @@ class BOLAgentApp:
             time.sleep(0.5)
             set_field("Final Stop Total PALLET Count", data['final_pallets'])
             set_field("Final Stop Total PIECE Count", data['final_pieces'])
+            set_field("Volume Weight", data.get('final_volume', '10000'))
             
             try:
-                all_vols = driver.find_elements(By.XPATH, "//*[contains(@aria-label, 'Volume')]")
-                if all_vols:
-                    target = all_vols[-1]
-                    driver.execute_script("arguments[0].value = arguments[1];", target, data['final_volume'])
-                    driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", target)
-            except: pass
+                all_vol_inputs = driver.find_elements(By.XPATH, "//*[contains(@aria-label, 'Volume') or contains(@placeholder, 'Volume')]")
+                if len(all_vol_inputs) >= 2:
+                    target_vol_element = all_vol_inputs[-1]
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_vol_element)
+                    target_vol_element.clear()
+                    target_vol_element.send_keys(data.get('final_volume', '10000'))
+
+                    self.log(f"   [Worker#{driver.name}] 成功填写 Final Volume。")
+                else:
+                    self.log(f"   [Worker#{driver.name}] ⚠️ Volume Weight 元素定位失败，跳过。")
+            except Exception as e:
+                self.log(f"   [Worker#{driver.name}] ❌ 填写 Final Volume 兜底失败: {e}")
             
             set_field("Carrier", data['carrier'], is_dropdown=True)
         else:
