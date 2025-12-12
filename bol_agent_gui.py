@@ -61,7 +61,7 @@ def get_carrier(destination_key):
     dest = destination_key.upper()
     if "EWR" in dest or "JFK" in dest: return "Han Express"
     if "ATL" in dest or "MIA" in dest: return "NYQZ"
-    if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS", "RIC"]):
+    if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS", "RIC", "IAH"]):
         return "80s Express"
     return "Spot Freight"
 
