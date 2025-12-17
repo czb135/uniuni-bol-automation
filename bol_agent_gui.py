@@ -379,21 +379,28 @@ class BOLAgentApp:
             time.sleep(0.5)
             set_field("Final Stop Total PALLET Count", data['final_pallets'])
             set_field("Final Stop Total PIECE Count", data['final_pieces'])
-            set_field("Volume Weight", data.get('final_volume', '10000'))
+
             
             try:
-                all_vol_inputs = driver.find_elements(By.XPATH, "//*[contains(@aria-label, 'Volume') or contains(@placeholder, 'Volume')]")
-                if len(all_vol_inputs) >= 2:
-                    target_vol_element = all_vol_inputs[-1]
-                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_vol_element)
-                    target_vol_element.clear()
-                    target_vol_element.send_keys(data.get('final_volume', '10000'))
-
-                    self.log(f"   [Worker#{driver.name}] 成功填写 Final Volume。")
+                final_vol_value = data.get('final_volume', '10000')
+                
+                # 策略: 查找 Label 包含 'Volume Weight' 但不包含 'Stop1' 的那个输入框
+                # 或者，更简单暴力：找页面上所有的 'Volume Weight' 输入框，取最后一个
+                
+                all_vols = driver.find_elements(By.XPATH, "//*[contains(@aria-label, 'Volume Weight')] | //label[contains(., 'Volume Weight')]/following::input[1]")
+                
+                if all_vols:
+                    target = all_vols[-1] # 取最后一个，通常就是 Final Stop
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target)
+                    target.clear()
+                    target.send_keys(str(final_vol_value))
+                    self.log(f"   [Worker] 成功精确填写 Final Volume: {final_vol_value}")
                 else:
-                    self.log(f"   [Worker#{driver.name}] ⚠️ Volume Weight 元素定位失败，跳过。")
+                    self.log("   [Worker] ⚠️ 未找到 Final Volume 元素")
+            
             except Exception as e:
-                self.log(f"   [Worker#{driver.name}] ❌ 填写 Final Volume 兜底失败: {e}")
+                self.log(f"   [Worker] ❌ 填写 Final Volume 失败: {e}")
+            # ===================================
             
             set_field("Carrier", data['carrier'], is_dropdown=True)
         else:
