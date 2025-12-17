@@ -25,7 +25,7 @@ ADDRESS_MAP = {
     "NJ600": "*EWR600*: 600 Federal Blvd, Carteret NJ 07008",
     "JFK": "*JFK175*: 175-14 147th Ave, Jamaica NY 11434",
     "JFK175": "*JFK175*: 175-14 147th Ave, Jamaica NY 11434",
-    "ORD": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
+    "ORD126": "ORD126: 12690 S Rte 59, Plainfield IL 60585",
     "ORD121": "*ORD121*: 1211 Tower Road, Schaumburg IL 60173",
     "DFW140": "DFW140: 1401 Dunn Dr, Carrolton TX 75006",
     "DFW445": "*DFW445*: 4450 W Walnut Hill Lane, Unit 100, Irving TX 75038",
@@ -53,6 +53,7 @@ ADDRESS_MAP = {
     "ORD102": "ORD102: 10216 Werch Dr, Woodridge IL 60517",
     "ATL760": "ATL760: 7600 Wood Rd, Douglasville GA 30134",
     "RIC": "RIC100: 10097 Patterson Park Rd, Suite 101, Ashland VA 23005",
+    "PIT": "PIT017: 17 Herron Ave, Emsworth PA 15202"
 }
 
 # ================= 2. 业务规则逻辑 =================
