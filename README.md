@@ -21,7 +21,7 @@ You only need to install **uv** (a modern Python tool manager). This is a one-ti
 
 * **Mac / Linux:**
     ```bash
-    curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
     *(If you see a warning about PATH, restart your terminal or run `source $HOME/.local/bin/env`)*
 
