@@ -1,3 +1,11 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "selenium",
+#     "webdriver-manager",
+# ]
+# ///
+
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 import threading
