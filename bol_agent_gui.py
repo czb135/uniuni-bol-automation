@@ -62,7 +62,10 @@ ADDRESS_MAP = {
     "ORD102": "ORD102: 10216 Werch Dr, Woodridge IL 60517",
     "ATL760": "ATL760: 7600 Wood Rd, Douglasville GA 30134",
     "RIC": "RIC100: 10097 Patterson Park Rd, Suite 101, Ashland VA 23005",
-    "PIT": "PIT017: 17 Herron Ave, Emsworth PA 15202"
+    "PIT": "PIT017: 17 Herron Ave, Emsworth PA 15202",
+    "CMH": "CMH255: 2559 Westbelt Dr, Columbus OH 43228",
+    "CVG": "CVG505: 5055 Duff Dr, West Chester OH 45246",
+    "SDF": "SDF115: 11501 Champions Way, Louisville KY 40299",
 }
 
 # ================= 2. 业务规则逻辑 =================
@@ -71,7 +74,7 @@ def get_carrier(destination_key):
     dest = destination_key.upper()
     if "EWR" in dest or "JFK" in dest: return "Han Express"
     if "ATL" in dest or "MIA" in dest: return "NYQZ"
-    if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS", "RIC", "IAH"]):
+    if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS", "RIC", "IAH", "PIT", "SDF"]):
         return "80s Express"
     return "Spot Freight"
 
@@ -237,12 +240,16 @@ class BOLAgentApp:
                     line = parts[0]
                     count = int(parts[1].strip())
                 
+                # 只有当包含 "-" 时才进入解析
                 if "-" in line:
                     route_parts = line.split("-")
+                    # 统一去除空格
                     origin = route_parts[0].strip()
+                    # 起点别名处理
                     origin_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
                     origin = origin_aliases.get(origin.upper(), origin)
                     
+                    # --- 情况1: 2段式 (Origin -> Final) ---
                     if len(route_parts) == 2:
                         dest_key = route_parts[1].strip()
                         dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
@@ -253,30 +260,70 @@ class BOLAgentApp:
                         
                         for _ in range(count):
                             tasks.append({
-                                "bol_type": "two_stop", "origin": origin, "final_stop": full_address,
-                                "carrier": carrier, "pallets": str(pallets)
+                                "bol_type": "two_stop", 
+                                "origin": origin, 
+                                "final_stop": full_address,
+                                "carrier": carrier, 
+                                "pallets": str(pallets)
                             })
                     
+                    # --- 情况2: 3段式 (Origin -> Stop1 -> Final) ---
                     elif len(route_parts) == 3:
                         stop1_key = route_parts[1].strip()
                         dest_key = route_parts[2].strip()
+                        
                         dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
                         stop1_key = dest_aliases.get(stop1_key.upper(), stop1_key)
                         dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+                        
                         stop1_address = ADDRESS_MAP.get(stop1_key, stop1_key)
                         final_stop_address = ADDRESS_MAP.get(dest_key, dest_key)
                         carrier = get_carrier(dest_key)
                         
                         for _ in range(count):
                             tasks.append({
-                                "bol_type": "three_stop", "origin": origin, "stop1": stop1_address,
-                                "final_stop": final_stop_address, "carrier": carrier,
+                                "bol_type": "three_stop", 
+                                "origin": origin, 
+                                "stop1": stop1_address,
+                                "final_stop": final_stop_address, 
+                                "carrier": carrier,
                                 "stop1_pallets": "12", "stop1_pieces": "0", "stop1_volume": "10000",
                                 "final_pallets": "12", "final_pieces": "0", "final_volume": "10000"
                             })
+
+                    # --- 情况3: 4段式 (Origin -> Stop1 -> Stop2 -> Final) ---
+                    elif len(route_parts) == 4:
+                        stop1_key = route_parts[1].strip()
+                        stop2_key = route_parts[2].strip()
+                        dest_key = route_parts[3].strip()
+
+                        dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
+                        stop1_key = dest_aliases.get(stop1_key.upper(), stop1_key)
+                        stop2_key = dest_aliases.get(stop2_key.upper(), stop2_key)
+                        dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+
+                        stop1_address = ADDRESS_MAP.get(stop1_key, stop1_key)
+                        stop2_address = ADDRESS_MAP.get(stop2_key, stop2_key)
+                        final_stop_address = ADDRESS_MAP.get(dest_key, dest_key)
+                        carrier = get_carrier(dest_key)
+
+                        for _ in range(count):
+                            tasks.append({
+                                "bol_type": "four_stop",
+                                "origin": origin,
+                                "stop1": stop1_address,
+                                "stop2": stop2_address,
+                                "final_stop": final_stop_address,
+                                "carrier": carrier,
+                                "stop1_pallets": "12", "stop1_pieces": "0", "stop1_volume": "10000",
+                                "stop2_pallets": "12", "stop2_pieces": "0", "stop2_volume": "10000",
+                                "final_pallets": "12", "final_pieces": "0", "final_volume": "10000"
+                            })
+
             except Exception as e:
                 self.log(f"解析忽略: {line} ({e})")
         return tasks
+
 
     # =========================================================================
     # 🔥🔥🔥 核心修改：防崩溃 + 自动重启 + 失败重试 Worker 🔥🔥🔥
@@ -349,33 +396,37 @@ class BOLAgentApp:
                 except: pass
 
     # --- 填表动作 (保持不变) ---
+    # --- 填表动作 ---
     def fill_smartsheet(self, driver, data, batch_no, email, ship_date):
         url = "https://app.smartsheet.com/b/form/a2a520ba7d614e88a00d211941d13364"
         
-        # 增加一个页面加载超时判定
+        # 页面加载超时处理
         driver.set_page_load_timeout(45) 
         try:
             driver.get(url)
         except Exception:
-            # 如果加载超时，抛出异常触发外层的重启逻辑
             raise Exception("Page Load Timeout")
 
         wait = WebDriverWait(driver, 30)
 
+        # 内部填值函数
         def set_field(label_keyword, value, is_dropdown=False, is_date=False):
             target_elem = None
             try:
+                # 尝试找 aria-label 包含关键字的元素
                 xpath_a = f"//*[(self::input or self::textarea) and contains(@aria-label, '{label_keyword}')]"
                 target_elem = driver.find_element(By.XPATH, xpath_a)
             except: pass
 
             if not target_elem:
                 try:
+                    # 尝试找 Label 标签后的输入框
                     xpath_b = f"//label[contains(., '{label_keyword}')]/following::*[self::input or self::textarea][1]"
                     target_elem = driver.find_element(By.XPATH, xpath_b)
                 except: pass
 
             if not target_elem:
+                # 针对 Volume 的特殊处理忽略，其他必须抛错
                 if "Volume" in label_keyword: return 
                 return 
 
@@ -406,13 +457,17 @@ class BOLAgentApp:
                         driver.execute_script("arguments[0].value = arguments[1];", target_elem, str(value))
                         driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", target_elem)
             except Exception as e:
-                # 抛出异常，让外层捕获重试
                 raise Exception(f"Field Error: {label_keyword}")
 
-        # 填表流程
+        # === 开始填表流程 ===
         set_field("Mode", "Ground", is_dropdown=True)
+        
         bol_type = data.get('bol_type', 'two_stop')
-        if bol_type == 'three_stop':
+        
+        # 🔥 根据类型选择下拉菜单
+        if bol_type == 'four_stop':
+            set_field("BOL Type", "Origin -> Stop1 -> Stop2 -> Final Stop", is_dropdown=True)
+        elif bol_type == 'three_stop':
             set_field("BOL Type", "Origin -> Stop1 -> Final Stop", is_dropdown=True)
         else:
             set_field("BOL Type", "Origin -> Final Stop", is_dropdown=True)
@@ -421,7 +476,43 @@ class BOLAgentApp:
         set_field("Email address", email)
         set_field("Origin", data['origin'], is_dropdown=True)
 
-        if bol_type == 'three_stop':
+        # 🔥 四段式逻辑
+        if bol_type == 'four_stop':
+            # --- Stop 1 ---
+            set_field("Stop1", data['stop1'], is_dropdown=True)
+            time.sleep(0.5)
+            set_field("Stop1 PALLET Count", data['stop1_pallets'])
+            set_field("Stop1 PIECE Count", data['stop1_pieces'])
+            set_field("Stop1 Volume Weight", data['stop1_volume'])
+
+            # --- Stop 2 (新增) ---
+            set_field("Stop2", data['stop2'], is_dropdown=True) # 注意这里不要加 PALLET 关键字，只找 Stop2
+            time.sleep(0.5)
+            set_field("Stop2 PALLET Count", data['stop2_pallets'])
+            set_field("Stop2 PIECE Count", data['stop2_pieces'])
+            set_field("Stop2 Volume Weight", data['stop2_volume'])
+
+            # --- Final Stop ---
+            set_field("Final Stop", data['final_stop'], is_dropdown=True)
+            time.sleep(0.5)
+            set_field("Final Stop Total PALLET Count", data['final_pallets'])
+            set_field("Final Stop Total PIECE Count", data['final_pieces'])
+            
+            # --- 填写 Final Volume (通过找最后一个 Volume 输入框) ---
+            try:
+                final_vol_value = data.get('final_volume', '10000')
+                all_vols = driver.find_elements(By.XPATH, "//*[contains(@aria-label, 'Volume Weight')] | //label[contains(., 'Volume Weight')]/following::input[1]")
+                if all_vols:
+                    target = all_vols[-1] # 取最后一个，通常是 Final Stop Volume
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target)
+                    target.clear()
+                    target.send_keys(str(final_vol_value))
+            except: pass
+
+            set_field("Carrier", data['carrier'], is_dropdown=True)
+
+        # 🔥 三段式逻辑
+        elif bol_type == 'three_stop':
             set_field("Stop1", data['stop1'], is_dropdown=True)
             time.sleep(0.5)
             set_field("Stop1 PALLET Count", data['stop1_pallets'])
@@ -444,6 +535,8 @@ class BOLAgentApp:
             except: pass
             
             set_field("Carrier", data['carrier'], is_dropdown=True)
+
+        # 🔥 两段式逻辑
         else:
             set_field("Final Stop", data['final_stop'], is_dropdown=True)
             set_field("PALLET", data['pallets'])
