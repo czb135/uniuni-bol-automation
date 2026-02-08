@@ -136,15 +136,25 @@ class BOLAgentApp:
         tk.Label(config_frame, text="并发窗口数:").grid(row=3, column=0, sticky="w")
         self.entry_workers = tk.Entry(config_frame, width=10)
         self.entry_workers.grid(row=3, column=1, sticky="w", padx=5, pady=2)
-        self.entry_workers.insert(0, "3")
-        tk.Label(config_frame, text="(注意：多开太卡，建议3-5个)", fg="gray").grid(row=3, column=1, sticky="e", padx=50)
+        self.entry_workers.insert(0, "2")
+        tk.Label(config_frame, text="(注意：多开太卡，建议2-5个)", fg="gray").grid(row=3, column=1, sticky="e", padx=50)
 
         # 输入区
         input_frame = tk.LabelFrame(root, text="指令区 (格式: 起点-终点 *数量)", padx=10, pady=10)
         input_frame.pack(fill="both", expand=True, padx=10, pady=5)
         self.txt_input = scrolledtext.ScrolledText(input_frame, height=10)
         self.txt_input.pack(fill="both", expand=True)
-        self.txt_input.insert(tk.END, "EWR936-EWR600 *2\nEWR936-JFK *1")
+        # 默认从 EWR936 发车
+        default_commands = (
+            "EWR936-ORD *1\n"
+            "EWR936-DFW *1\n"
+            "EWR936-MIA *1\n"
+            "EWR936-ATL *1\n"
+            "EWR936-JFK *1\n"
+            "EWR936-LAX *1\n"
+            "EWR936-EWR600 *2"
+        )
+        self.txt_input.insert(tk.END, default_commands)
 
         # 按钮
         btn_frame = tk.Frame(root, pady=10)
@@ -372,7 +382,7 @@ class BOLAgentApp:
                         # 成功！
                         self.log(f"✅ 工人 #{worker_id}: 第 {i} 张完成！")
                         success = True
-                        time.sleep(1) # 稍微休息防风控
+                        #time.sleep(1) # 稍微休息防风控
                         break # 跳出重试循环，处理下一个任务
 
                     except Exception as e:
@@ -387,7 +397,7 @@ class BOLAgentApp:
                         except:
                             pass # 忽略关闭时的报错
                         driver = None 
-                        time.sleep(2) # 等待资源释放
+                        #time.sleep(2) # 等待资源释放
 
                 if not success:
                     self.log(f"❌❌❌ 工人 #{worker_id}: 第 {i} 张在 {max_retries} 次尝试后彻底失败！已跳过。")
@@ -437,7 +447,7 @@ class BOLAgentApp:
                 return 
 
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_elem)
-            time.sleep(0.3)
+            #time.sleep(0.3)
 
             try:
                 if is_dropdown:
@@ -445,7 +455,7 @@ class BOLAgentApp:
                     target_elem.send_keys(Keys.CONTROL + "a")
                     target_elem.send_keys(Keys.DELETE)
                     target_elem.send_keys(str(value))
-                    time.sleep(1.2)
+                    #time.sleep(1.2)
                     target_elem.send_keys(Keys.ENTER)
                     target_elem.send_keys(Keys.TAB)
                 elif is_date:
@@ -486,21 +496,21 @@ class BOLAgentApp:
         if bol_type == 'four_stop':
             # --- Stop 1 ---
             set_field("Stop1", data['stop1'], is_dropdown=True)
-            time.sleep(0.5)
+            #time.sleep(0.5)
             set_field("Stop1 PALLET Count", data['stop1_pallets'])
             set_field("Stop1 PIECE Count", data['stop1_pieces'])
             set_field("Stop1 Volume Weight", data['stop1_volume'])
 
             # --- Stop 2 (新增) ---
             set_field("Stop2", data['stop2'], is_dropdown=True) # 注意这里不要加 PALLET 关键字，只找 Stop2
-            time.sleep(0.5)
+            #time.sleep(0.5)
             set_field("Stop2 PALLET Count", data['stop2_pallets'])
             set_field("Stop2 PIECE Count", data['stop2_pieces'])
             set_field("Stop2 Volume Weight", data['stop2_volume'])
 
             # --- Final Stop ---
             set_field("Final Stop", data['final_stop'], is_dropdown=True)
-            time.sleep(0.5)
+            #time.sleep(0.5)
             set_field("Final Stop Total PALLET Count", data['final_pallets'])
             set_field("Final Stop Total PIECE Count", data['final_pieces'])
             
@@ -520,13 +530,13 @@ class BOLAgentApp:
         # 🔥 三段式逻辑
         elif bol_type == 'three_stop':
             set_field("Stop1", data['stop1'], is_dropdown=True)
-            time.sleep(0.5)
+            #time.sleep(0.5)
             set_field("Stop1 PALLET Count", data['stop1_pallets'])
             set_field("Stop1 PIECE Count", data['stop1_pieces'])
             set_field("Stop1 Volume Weight", data['stop1_volume'])
             
             set_field("Final Stop", data['final_stop'], is_dropdown=True)
-            time.sleep(0.5)
+            #time.sleep(0.5)
             set_field("Final Stop Total PALLET Count", data['final_pallets'])
             set_field("Final Stop Total PIECE Count", data['final_pieces'])
 
@@ -557,7 +567,7 @@ class BOLAgentApp:
         try:
             submit_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@data-client-id='form_submit_btn']")))
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-            time.sleep(0.5)
+            #time.sleep(0.5)
             submit_btn.click()
             wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Thank you') or contains(text(), 'Success')]")))
         except Exception as e:
