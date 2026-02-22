@@ -72,14 +72,20 @@ ADDRESS_MAP = {
     "ORD102": "ORD102 - 10216 Werch Dr, Woodridge IL 60517",
     "ATL760": "ATL760 - 7600 Wood Rd, Douglasville GA 30134",
     "RIC": "RIC100 - 10097 Patterson Park Rd, Suite 101, Ashland VA 23005",
-    "PIT": "PIT017 - 17 Herron Ave, Emsworth PA 15202"
+    "PIT": "PIT017 - 17 Herron Ave, Emsworth PA 15202",
+    "CLE": "CLE689 - 6892 W. Snowville, Unit 101, Brecksville OH 44141",
+    "CLE689": "CLE689 - 6892 W. Snowville, Unit 101, Brecksville OH 44141",
+    "CMH": "CMH255 - 2559 Westbelt Dr, Columbus OH 43228",
+    "CMH255": "CMH255 - 2559 Westbelt Dr, Columbus OH 43228",
 }
 # ================= 2. 业务规则逻辑 =================
 
 def get_carrier(destination_key):
     dest = destination_key.upper()
-    if "EWR" in dest or "JFK" in dest: return "Han Express"
-    if "ATL" in dest or "MIA" in dest: return "NYQZ"
+    if "EWR" in dest or "JFK" in dest:
+        return "Han Express"
+    if any(k in dest for k in ["ATL", "MIA", "CLE", "CMH"]):
+        return "NYQZ"
     if any(k in dest for k in ["ORD", "DFW", "BOS", "PHL", "DCA", "RDU", "HFD", "ORF", "DOV", "PVD", "WHS", "RIC", "IAH", "PIT", "SDF"]):
         return "80s Express"
     return "Spot Freight"
@@ -152,7 +158,8 @@ class BOLAgentApp:
             "EWR936-ATL *1\n"
             "EWR936-JFK *1\n"
             "EWR936-LAX *1\n"
-            "EWR936-EWR600 *2"
+            "EWR936-EWR600 *2\n"
+            "EWR936-CLE-CMH *1\n"
         )
         self.txt_input.insert(tk.END, default_commands)
 
