@@ -255,94 +255,67 @@ class BOLAgentApp:
         tasks = []
         lines = raw_commands.split('\n')
         for line in lines:
-            if not line.strip(): continue
+            line = line.strip()
+            if not line: continue
             try:
+                # --- 1. 提取自定义承运商 (#号后面) ---
+                custom_carrier = None
+                if "#" in line:
+                    line_parts = line.split("#")
+                    line = line_parts[0].strip()
+                    custom_carrier = line_parts[1].strip()
+
+                # --- 2. 提取数量 (*号后面) ---
                 count = 1
                 if "*" in line:
                     parts = line.split("*")
-                    line = parts[0]
+                    line = parts[0].strip()
                     count = int(parts[1].strip())
                 
-                # 只有当包含 "-" 时才进入解析
+                # --- 3. 解析路径 ---
                 if "-" in line:
                     route_parts = line.split("-")
-                    # 统一去除空格
                     origin = route_parts[0].strip()
-                    # 起点别名处理
                     origin_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
                     origin = origin_aliases.get(origin.upper(), origin)
                     
-                    # --- 情况1: 2段式 (Origin -> Final) ---
                     if len(route_parts) == 2:
                         dest_key = route_parts[1].strip()
                         dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
                         dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+                        
                         full_address = ADDRESS_MAP.get(dest_key, dest_key)
-                        carrier = get_carrier(dest_key)
+                        
+                        # 优先级：自定义指令 > 默认逻辑
+                        carrier = custom_carrier if custom_carrier else get_carrier(dest_key)
                         pallets = get_pallet_count(dest_key)
                         
                         for _ in range(count):
                             tasks.append({
-                                "bol_type": "two_stop", 
-                                "origin": origin, 
-                                "final_stop": full_address,
-                                "carrier": carrier, 
-                                "pallets": str(pallets)
+                                "bol_type": "two_stop", "origin": origin, "final_stop": full_address,
+                                "carrier": carrier, "pallets": str(pallets)
                             })
                     
-                    # --- 情况2: 3段式 (Origin -> Stop1 -> Final) ---
                     elif len(route_parts) == 3:
                         stop1_key = route_parts[1].strip()
                         dest_key = route_parts[2].strip()
-                        
                         dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
                         stop1_key = dest_aliases.get(stop1_key.upper(), stop1_key)
                         dest_key = dest_aliases.get(dest_key.upper(), dest_key)
                         
                         stop1_address = ADDRESS_MAP.get(stop1_key, stop1_key)
                         final_stop_address = ADDRESS_MAP.get(dest_key, dest_key)
-                        carrier = get_carrier(dest_key)
+                        
+                        # 优先级：自定义指令 > 默认逻辑
+                        carrier = custom_carrier if custom_carrier else get_carrier(dest_key)
                         
                         for _ in range(count):
                             tasks.append({
-                                "bol_type": "three_stop", 
-                                "origin": origin, 
-                                "stop1": stop1_address,
-                                "final_stop": final_stop_address, 
-                                "carrier": carrier,
+                                "bol_type": "three_stop", "origin": origin, "stop1": stop1_address,
+                                "final_stop": final_stop_address, "carrier": carrier,
                                 "stop1_pallets": "12", "stop1_pieces": "0", "stop1_volume": "10000",
                                 "final_pallets": "12", "final_pieces": "0", "final_volume": "10000"
                             })
-
-                    # --- 情况3: 4段式 (Origin -> Stop1 -> Stop2 -> Final) ---
-                    elif len(route_parts) == 4:
-                        stop1_key = route_parts[1].strip()
-                        stop2_key = route_parts[2].strip()
-                        dest_key = route_parts[3].strip()
-
-                        dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
-                        stop1_key = dest_aliases.get(stop1_key.upper(), stop1_key)
-                        stop2_key = dest_aliases.get(stop2_key.upper(), stop2_key)
-                        dest_key = dest_aliases.get(dest_key.upper(), dest_key)
-
-                        stop1_address = ADDRESS_MAP.get(stop1_key, stop1_key)
-                        stop2_address = ADDRESS_MAP.get(stop2_key, stop2_key)
-                        final_stop_address = ADDRESS_MAP.get(dest_key, dest_key)
-                        carrier = get_carrier(dest_key)
-
-                        for _ in range(count):
-                            tasks.append({
-                                "bol_type": "four_stop",
-                                "origin": origin,
-                                "stop1": stop1_address,
-                                "stop2": stop2_address,
-                                "final_stop": final_stop_address,
-                                "carrier": carrier,
-                                "stop1_pallets": "12", "stop1_pieces": "0", "stop1_volume": "10000",
-                                "stop2_pallets": "12", "stop2_pieces": "0", "stop2_volume": "10000",
-                                "final_pallets": "12", "final_pieces": "0", "final_volume": "10000"
-                            })
-
             except Exception as e:
                 self.log(f"解析忽略: {line} ({e})")
         return tasks
