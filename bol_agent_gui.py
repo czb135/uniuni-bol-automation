@@ -77,6 +77,8 @@ ADDRESS_MAP = {
     "CLE689": "CLE689 - 6892 W. Snowville, Unit 101, Brecksville OH 44141",
     "CMH": "CMH255 - 2559 Westbelt Dr, Columbus OH 43228",
     "CMH255": "CMH255 - 2559 Westbelt Dr, Columbus OH 43228",
+    "TOL" : "TOL255 - 2550 Tracy Rd, Northwood OH 43619",
+    "TOL255" : "TOL255 - 2550 Tracy Rd, Northwood OH 43619",
 }
 # ================= 2. 业务规则逻辑 =================
 
@@ -158,8 +160,9 @@ class BOLAgentApp:
             "EWR936-ATL *1\n"
             "EWR936-JFK *1\n"
             "EWR936-LAX *1\n"
-            "EWR936-EWR600 *2\n"
-            "EWR936-CLE-CMH *1\n"
+            "EWR936-EWR600 *2\n" 
+            "EWR936-EWR600 *1 #NYQZ\n"  # 更新：标注为 NYQZ
+            "EWR936-CLE-TOL-CMH *1\n"   # 新增：途经 TOL 的线路
         )
         self.txt_input.insert(tk.END, default_commands)
 
@@ -316,6 +319,39 @@ class BOLAgentApp:
                                 "stop1_pallets": "12", "stop1_pieces": "0", "stop1_volume": "10000",
                                 "final_pallets": "12", "final_pieces": "0", "final_volume": "10000"
                             })
+                            
+                    # 👇👇👇 这里是为你新增的四段式逻辑 (EWR936-CLE-TOL-CMH) 👇👇👇
+                    elif len(route_parts) == 4:
+                        stop1_key = route_parts[1].strip()
+                        stop2_key = route_parts[2].strip()
+                        dest_key = route_parts[3].strip()
+                        
+                        dest_aliases = {"NJ936": "EWR936", "NJ600": "EWR600"}
+                        stop1_key = dest_aliases.get(stop1_key.upper(), stop1_key)
+                        stop2_key = dest_aliases.get(stop2_key.upper(), stop2_key)
+                        dest_key = dest_aliases.get(dest_key.upper(), dest_key)
+                        
+                        stop1_address = ADDRESS_MAP.get(stop1_key, stop1_key)
+                        stop2_address = ADDRESS_MAP.get(stop2_key, stop2_key)
+                        final_stop_address = ADDRESS_MAP.get(dest_key, dest_key)
+                        
+                        # 优先级：自定义指令 > 默认逻辑
+                        carrier = custom_carrier if custom_carrier else get_carrier(dest_key)
+                        
+                        for _ in range(count):
+                            tasks.append({
+                                "bol_type": "four_stop", 
+                                "origin": origin, 
+                                "stop1": stop1_address,
+                                "stop2": stop2_address,
+                                "final_stop": final_stop_address, 
+                                "carrier": carrier,
+                                "stop1_pallets": "12", "stop1_pieces": "0", "stop1_volume": "10000",
+                                "stop2_pallets": "12", "stop2_pieces": "0", "stop2_volume": "10000",
+                                "final_pallets": "12", "final_pieces": "0", "final_volume": "10000"
+                            })
+                    # 👆👆👆 新增部分结束 👆👆👆
+                    
             except Exception as e:
                 self.log(f"解析忽略: {line} ({e})")
         return tasks
