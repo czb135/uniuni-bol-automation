@@ -94,9 +94,37 @@ def get_carrier(destination_key):
 
 def get_pallet_count(destination_key):
     dest = destination_key.upper()
-    short_haul = ["EWR", "JFK", "NJ25", "PHL", "DCA", "BOS", "HFD", "PVD", "DOV"]
-    if any(k in dest for k in short_haul):
+
+    pallets_12 = [
+        "EWR",
+        "JFK",
+        "NJ25",
+
+        "BDL",
+        "ORF",
+        "RIC",
+        "SYR",
+        "SWF",
+        "ALB",
+        "BUF",
+        "ROC",
+        "AVP",
+        "ABE",
+        "MDT",
+        "CLT",
+        "RDU",
+        "GSO",
+        "PVD",
+        "PWM",
+        "MHT",
+        "BOS",
+        "DCA",
+        "DOV",
+    ]
+
+    if any(k in dest for k in pallets_12):
         return 12
+
     return 26
 
 # ================= 3. GUI 主程序 =================
@@ -154,14 +182,34 @@ class BOLAgentApp:
         self.txt_input.pack(fill="both", expand=True)
         # 默认从 EWR936 发车
         default_commands = (
-            "EWR936-ORD *1\n"
-            "EWR936-ORD *1  #TOTAL QUALITY LOGISTICS LLC\n"
-            "EWR936-DFW *1  #TOTAL QUALITY LOGISTICS LLC\n"
-            "EWR936-MIA *1\n"
-            "EWR936-ATL *1\n"
-            "EWR936-JFK *1\n"
-            "EWR936-LAX *1\n"
-            "EWR936-EWR600 *1 #NYQZ\n"  # 更新：标注为 NYQZ
+            "EWR600-BDL045 *3 #80s Express\n"
+    "EWR600-ORF271 *2 #80s Express\n"
+    "EWR600-RIC843 *2 #80s Express\n"
+    "EWR600-SYR235 *1 #80s Express\n"
+    "EWR600-SWF001 *1 #80s Express\n"
+    "EWR600-ALB025 *1 #80s Express\n"
+    "EWR600-BUF433 *1 #80s Express\n"
+    "EWR600-ROC075 *1 #80s Express\n"
+    "EWR600-AVP226 *1 #80s Express\n"
+    "EWR600-ABE113 *1 #80s Express\n"
+    "EWR600-MDT185 *2 #80s Express\n"
+    "EWR600-CLT133 *1 #80s Express\n"
+    "EWR600-RDU550 *1 #80s Express\n"
+    "EWR600-GSO215 *1 #80s Express\n"
+    "EWR600-PVD031 *1 #80s Express\n"
+    "EWR600-PWM417 *1 #80s Express\n"
+    "EWR600-MHT157 *1 #80s Express\n"
+    "EWR600-BOS001 *3 #80s Express\n"
+    "EWR600-DCA521 *3 #80s Express\n"
+    "EWR600-DCA522 *3 #80s Express\n"
+    "EWR600-PVD031-PVD092 *1 #80s Express\n"
+    "EWR600-DOV320 *1 #80s Express\n"
+    "EWR600-JFK290 *2 #Han Express\n"
+    "EWR600-JFK113 *2 #Han Express\n"
+    "EWR600-JFK175 *2 #Han Express\n"
+    "EWR600-EWR936 *8 #Han Express\n"
+    "EWR600-PIT017 *1 #NYQZ\n"
+    "EWR600-PHL160 *2 #NYQZ\n"
         )
         self.txt_input.insert(tk.END, default_commands)
 
