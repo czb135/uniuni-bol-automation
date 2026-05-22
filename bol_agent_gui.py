@@ -161,6 +161,7 @@ class BOLAgentApp:
             "EWR936-ATL *1\n"
             "EWR936-JFK *1\n"
             "EWR936-LAX *1\n"
+            "EWR936-EWR600 *2\n" 
             "EWR936-EWR600 *1 #NYQZ\n"  # 更新：标注为 NYQZ
         )
         self.txt_input.insert(tk.END, default_commands)
